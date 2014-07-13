@@ -22,20 +22,20 @@ class Player
     private $id;
 
     /**
-     * La liste des pseudo connus pour le joueur, la dernière entrée est le dernier pseudo connu du joueur
+     * La liste des pseudos connus pour le joueur, la dernière entrée est le dernier pseudo connu du joueur
      * @var array
      *
-     * @ORM\Column(name="pseudo", type="array")
+     * @ORM\Column(name="usernames", type="array")
      */
-    private $pseudo;
+    private $usernames = array();
 
     /**
      * Pour chaque changement de pseudo, correspond à la date constaté du changement par le serveur (Chaque indice correspond a l'indice du pseudo correspondant)
      * @var array
      *
-     * @ORM\Column(name="pseudo_date", type="array")
+     * @ORM\Column(name="usernames_logs", type="array")
      */
-    private $pseudoDate;
+    private $usernamesLogs = array();
 
     /**
      * Le uuid du joueur, son identifiant unique
@@ -185,5 +185,51 @@ class Player
     public function getPseudoDate()
     {
         return $this->pseudoDate;
+    }
+
+    /**
+     * Set usernames
+     *
+     * @param array $usernames
+     * @return Player
+     */
+    public function setUsernames($usernames)
+    {
+        $this->usernames = $usernames;
+
+        return $this;
+    }
+
+    /**
+     * Get usernames
+     *
+     * @return array 
+     */
+    public function getUsernames()
+    {
+        return $this->usernames;
+    }
+
+    /**
+     * Set usernamesLogs
+     *
+     * @param array $usernamesLogs
+     * @return Player
+     */
+    public function setUsernamesLogs($usernamesLogs)
+    {
+        $this->usernamesLogs = $usernamesLogs;
+
+        return $this;
+    }
+
+    /**
+     * Get usernamesLogs
+     *
+     * @return array 
+     */
+    public function getUsernamesLogs()
+    {
+        return $this->usernamesLogs;
     }
 }
