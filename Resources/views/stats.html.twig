@@ -1,0 +1,42 @@
+{% extends '::base.html.twig' %}
+
+{% block write_content %}
+    {% if player != {} %}
+    <div class="box white box-padding box-title br-black">
+        <h1>Fiche du joueur : {{ player.name }}</h1>
+    </div>
+    <br />
+    <br />
+    <div class="col-md-12">
+        <div class="row">
+            <div class="col-md-5">
+                <div class="col-md-6 br-lblue box-padding white">
+                    <strong>Pseudo :</strong>
+                </div>
+                <div class="col-md-6 box-padding">
+                    {{ player.name }}
+                </div>
+                <div class="col-md-12 box-padding">
+                    <img src="{{ asset('bundles/player/Generator/3DSkinGenerator.php??a=-25&w=35&wt=-45&abg=0&abd=-30&ajg=-25&ajd=30&ratio=15&format=png&displayHairs=true&headOnly=false&login=' ~ player.name) }}" alt="{{ player.name }}" style="width: 100%;max-width: 200px;"/>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <div class="col-md-6 box-padding br-lblue white">
+                    Première visite :
+                </div>
+                <div class="col-md-6 box-padding">
+                    {{ player.firstPlayed }}
+                </div>
+                <div class="col-md-6 box-padding br-lblue white">
+                    Administrateur :
+                </div>
+                <div class="col-md-6 box-padding">
+                    {{ player.op }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p>Ce joueur ne joue pas sur le serveur ou nous avons rencontré un problème avec ce dernier</p>
+    {% endif %}
+{% endblock %}

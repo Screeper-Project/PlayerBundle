@@ -1,0 +1,11 @@
+parameters:
+#    player.example.class: MinecraftProject\PlayerBundle\Example
+
+services:
+    player.twig.skin_extension:
+        class: MinecraftProject\PlayerBundle\Twig\SkinExtension
+        arguments:
+            - [@service_container]
+            - [@doctrine.orm.entity_manager]
+        tags:
+            - { name: twig.extension }
