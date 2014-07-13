@@ -38,6 +38,8 @@ class UUIDService
      * @throws \HydrationException
      * @throws \Exception
      */
+
+    /*
     public function getProfileInDb($identifier, array $options)
     {
         if(!isset($options['type']))
@@ -64,6 +66,7 @@ class UUIDService
         if($nb_result >= 1) // Si on a plusieurs résultats
             throw new \Exception("Screeper - PlayerBundle - Il semblerait que le serveur possède deux joueurs ayant le même UUID, veuillez contacter un administrateur");
     }
+    */
 
     /**
      * Permet de récupéré le pseudo a partir de l'uuid, à utilisé avec précaution (erreur possible)

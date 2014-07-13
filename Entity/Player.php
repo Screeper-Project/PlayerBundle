@@ -30,6 +30,14 @@ class Player
     private $usernames = array();
 
     /**
+     * Le dernier pseudo connu du joueur
+     * @var array
+     *
+     * @ORM\Column(name="last_username", type="array")
+     */
+    private $lastUsername = array();
+
+    /**
      * Pour chaque changement de pseudo, correspond à la date constaté du changement par le serveur (Chaque indice correspond a l'indice du pseudo correspondant)
      * @var array
      *
@@ -60,7 +68,7 @@ class Player
      * @ORM\Column(name="nb_verification", type="integer")
      */
     private $nbVerification;
-
+    
 
     /**
      * Get id
@@ -73,26 +81,72 @@ class Player
     }
 
     /**
-     * Set pseudo
+     * Set usernames
      *
-     * @param array $pseudo
+     * @param array $usernames
      * @return Player
      */
-    public function setPseudo($pseudo)
+    public function setUsernames($usernames)
     {
-        $this->pseudo = $pseudo;
+        $this->usernames = $usernames;
 
         return $this;
     }
 
     /**
-     * Get pseudo
+     * Get usernames
      *
      * @return array 
      */
-    public function getPseudo()
+    public function getUsernames()
     {
-        return $this->pseudo;
+        return $this->usernames;
+    }
+
+    /**
+     * Set lastUsername
+     *
+     * @param array $lastUsername
+     * @return Player
+     */
+    public function setLastUsername($lastUsername)
+    {
+        $this->lastUsername = $lastUsername;
+
+        return $this;
+    }
+
+    /**
+     * Get lastUsername
+     *
+     * @return array 
+     */
+    public function getLastUsername()
+    {
+        return $this->lastUsername;
+    }
+
+    /**
+     * Set usernamesLogs
+     *
+     * @param array $usernamesLogs
+     * @return Player
+     */
+    public function setUsernamesLogs($usernamesLogs)
+    {
+        $this->usernamesLogs = $usernamesLogs;
+
+        return $this;
+    }
+
+    /**
+     * Get usernamesLogs
+     *
+     * @return array 
+     */
+    public function getUsernamesLogs()
+    {
+        return $this->usernamesLogs;
     }
 
     /**
@@ -162,74 +216,5 @@ class Player
     public function getNbVerification()
     {
         return $this->nbVerification;
-    }
-
-    /**
-     * Set pseudoDate
-     *
-     * @param array $pseudoDate
-     * @return Player
-     */
-    public function setPseudoDate($pseudoDate)
-    {
-        $this->pseudoDate = $pseudoDate;
-
-        return $this;
-    }
-
-    /**
-     * Get pseudoDate
-     *
-     * @return array 
-     */
-    public function getPseudoDate()
-    {
-        return $this->pseudoDate;
-    }
-
-    /**
-     * Set usernames
-     *
-     * @param array $usernames
-     * @return Player
-     */
-    public function setUsernames($usernames)
-    {
-        $this->usernames = $usernames;
-
-        return $this;
-    }
-
-    /**
-     * Get usernames
-     *
-     * @return array 
-     */
-    public function getUsernames()
-    {
-        return $this->usernames;
-    }
-
-    /**
-     * Set usernamesLogs
-     *
-     * @param array $usernamesLogs
-     * @return Player
-     */
-    public function setUsernamesLogs($usernamesLogs)
-    {
-        $this->usernamesLogs = $usernamesLogs;
-
-        return $this;
-    }
-
-    /**
-     * Get usernamesLogs
-     *
-     * @return array 
-     */
-    public function getUsernamesLogs()
-    {
-        return $this->usernamesLogs;
     }
 }
