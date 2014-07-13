@@ -1,11 +1,15 @@
 parameters:
-#    player.example.class: MinecraftProject\PlayerBundle\Example
+#    player.example.class: Screeper\PlayerBundle\Example
 
 services:
-    player.twig.skin_extension:
-        class: MinecraftProject\PlayerBundle\Twig\SkinExtension
+    screeper.player.services.player:
+        class: Screeper\PlayerBundle\Services\PlayerService
         arguments:
-            - [@service_container]
-            - [@doctrine.orm.entity_manager]
-        tags:
-            - { name: twig.extension }
+            - '@service_container'
+            - '@doctrine.orm.entity_manager'
+
+    screeper.player.services.uuid:
+        class: Screeper\PlayerBundle\Services\UUIDService
+        arguments:
+            - '@service_container'
+            - '@doctrine.orm.entity_manager'
