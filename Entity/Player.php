@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * @ORM\Table()
  * @ORM\Entity
+ * @ORM\HasLifecycleCallbacks()
  */
 class Player
 {
@@ -34,6 +35,7 @@ class Player
      * @var array
      *
      * @ORM\Column(name="last_username", type="array")
+     *
      */
     private $lastUsername = array();
 
@@ -68,7 +70,23 @@ class Player
      * @ORM\Column(name="nb_verification", type="integer")
      */
     private $nbVerification;
-    
+
+    /**
+     * @ORM\PreUpdate
+     * @ORM\PrePersist
+     */
+    public function updateLastUsername()
+    {
+        $this->setLastUsername(end($this->getUsernames()));
+    }
+
+    /**
+     * @ORM\PreUpdate
+     */
+    public function increaseNbVerification()
+    {
+        $this->setNbVerification($this->getNbVerification() + 1);
+    }
 
     /**
      * Get id
