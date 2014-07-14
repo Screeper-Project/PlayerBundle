@@ -83,6 +83,6 @@ class PlayerService
 
     public function addPlayer(array $identifiers)
     {
-        
+
     }
 }
