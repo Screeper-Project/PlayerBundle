@@ -77,15 +77,36 @@ class Player
      */
     public function updateLastUsername()
     {
-        $this->setLastUsername(end($this->getUsernames()));
+        $new_username = end($this->getUsernames());
+
+        if($this->getLastUsername() != $new_username)
+            $this->setLastUsername($new_username);
     }
 
     /**
-     * @ORM\PreUpdate
+     * Add username
+     *
+     * @param array $username
+     * @return Player
      */
-    public function increaseNbVerification()
+    public function addUsername($username)
     {
-        $this->setNbVerification($this->getNbVerification() + 1);
+        $this->usernames[] = $username;
+
+        return $this;
+    }
+
+    /**
+     * Add usernamesLog
+     *
+     * @param array $usernamesLog
+     * @return Player
+     */
+    public function addUsernamesLog($usernamesLog)
+    {
+        $this->usernamesLogs[] = $usernamesLog;
+
+        return $this;
     }
 
     /**

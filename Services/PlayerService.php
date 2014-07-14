@@ -15,6 +15,7 @@ use Screeper\PlayerBundle\Entity\Player as PlayerEntity;
 use Screeper\ServerBundle\Services\ServerService;
 use Symfony\Component\Config\Definition\Exception\InvalidTypeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\Validator\Constraints\DateTime;
 
 class PlayerService
 {
@@ -39,11 +40,11 @@ class PlayerService
      * @return bool
      * @throws \Symfony\Component\Config\Definition\Exception\InvalidTypeException
      */
-    public function isConnected($player, $server = ServerService::DEFAULT_SERVER_NAME)
+    public function isConnected($player, $server_name = ServerService::DEFAULT_SERVER_NAME)
     {
         $json_api_service = $this->container->get('screeper.json_api.services.api');
         $uuid_service = $this->container->get('screeper.player.services.uuid');
-        $online_players = $json_api_service->callResult('players.online.names');
+        $online_players = $json_api_service->callResult('players.online.names', array(), $server_name);
 
         if($player instanceof PlayerEntity)
         {
@@ -84,5 +85,76 @@ class PlayerService
     public function addPlayer(array $identifiers)
     {
 
+    }
+
+    /**
+     * @param $identifier
+     * @param array $options
+     * @return null
+     * @throws \HydrationException
+     * @throws \Exception
+     */
+    public function getProfileInDb($identifier, array $options)
+    {
+        $uuid_service = $this->container->get('screeper.player.services.uuid');
+
+        if(is_string($identifier))
+            if(strlen($identifier) > 16)
+                $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByUUID($identifier);
+            else
+            {
+                $uuid = $uuid_service->getUUIDFromUsername($identifier);
+
+                if($uuid == null)
+                    throw new \Exception("Screeper - PlayerBundle - Erreur, l'UUID associé au pseudo spécifié est introuvable ou les serveurs de Mojang ne fonctionnent pas");
+
+                $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByUUID($uuid);
+            }
+        else
+            throw new InvalidTypeException("Screeper - PlayerBundle - L'argument passer pour récupéré un profil doit etre un pseudo ou un uuid");
+
+        $nb_result = count($result);
+
+        if($nb_result == 0) // Si on a aucun résultat, on retourne null, le joueur n'a jamais été enregistré en bdd
+            return null;
+        if($nb_result == 1) // Si on a un seul résultat, on le retourne
+            return $result[0];
+        if($nb_result >= 1) // Si on a plusieurs résultats
+            throw new \Exception("Screeper - PlayerBundle - Il semblerait que le serveur possède deux joueurs ayant le même UUID, veuillez contacter un administrateur");
+    }
+
+    public function checkOnlinePlayers($server_name)
+    {
+        $json_api_service = $this->container->get('screeper.json_api.services.api');
+        $uuid_service = $this->container->get('screeper.player.services.uuid');
+
+        $online_players = $json_api_service->callResult('players.online.names', array(), $server_name);
+
+        foreach($online_players as $player)
+        {
+            $player_uuid = $uuid_service->getUUIDFromUsername($player);
+
+            if($player_uuid != null) // Si on a trouvé l'UUID
+            {
+                // On charge, s'il existe, le profile enregistré en BDD
+                $profile = $this->getProfileInDb($player_uuid);
+
+                if($profile == null) // Si aucun profil n'a été trouvé, alors on en crée un.
+                {
+                    $profile = new PlayerEntity();
+                    $profile->addUsername($player)
+                        ->addUsernamesLog(new \DateTime())
+                        ->setUuid($player_uuid);
+                }
+                else
+                    if(end($profile->getUsernames()) != $player) // Si on constate un changement de pseudo, on l'enregistre
+                        $profile->addUsername($player)
+                            ->addUsernamesLog(new \DateTime());
+
+                $profile
+                    ->setNbVerification($profile->getNbVerification() + 1)
+                    ->setLastVerification(new DateTime());
+            }
+        }
     }
 }
