@@ -25,13 +25,14 @@ class CheckCommand extends ContainerAwareCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $container = $this->getContainer();
-        $checkConnection = $container->get('screeper.json_api.services.api')->getServerStatus($action->getServerName());
-
+                /*
         if($input->getArgument('server') != null)
             $server = $input->getArgument('server');
-        else
+        else*/
             $server = ServerService::DEFAULT_SERVER_NAME;
+
+        $container = $this->getContainer();
+        $checkConnection = $container->get('screeper.json_api.services.api')->getServerStatus($server);
 
         if($checkConnection)
             $container->get('screeper.player.services.player')->checkOnlinePlayers($server);
