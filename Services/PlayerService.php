@@ -16,6 +16,7 @@ use Screeper\ServerBundle\Services\ServerService;
 use Symfony\Component\Config\Definition\Exception\InvalidTypeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Validator\Constraints\DateTime;
+use Symfony\Component\Console\Output\OutputInterface;
 
 class PlayerService
 {
@@ -44,13 +45,14 @@ class PlayerService
     {
         $json_api_service = $this->container->get('screeper.json_api.services.api');
         $uuid_service = $this->container->get('screeper.player.services.uuid');
-        $online_players = $json_api_service->callResult('players.online.names', array(), $server_name);
+
+        $online_players_names = $json_api_service->callResult('players.online.names', array(), $server_name);
 
         if($player instanceof PlayerEntity)
         {
             $last_username_of_player = strtolower($player->getLastUsername());
 
-            foreach($online_players as $name)
+            foreach($online_players_names as $name)
                 if($last_username_of_player == strtolower($name))
                     if($uuid_service->getUUIDFromUsername($name) == $player->getUuid())
                         return true;
@@ -59,15 +61,15 @@ class PlayerService
         }
         elseif(is_string($player) && strlen($player) > PlayerService::PLAYER_USERNAME_MAX_LENGTH) // Si on a spécifié un uuid
         {
-            foreach($online_players as $name)
-                if($uuid_service->getUUIDFromUsername($name) == $player->getUuid())
+            foreach($online_players_names as $name)
+                if($uuid_service->getUUIDFromUsername($name) == $player)
                     return true;
 
             return false;
         }
         elseif(is_string($player) && strlen($player) <= PlayerService::PLAYER_USERNAME_MAX_LENGTH) // Si on a spécifié un pseudo (DECONSEILLE POUR DES RAISONS DE SECURITE)
         {
-            foreach($online_players as $name)
+            foreach($online_players_names as $name)
                 if(strtolower($player) == strtolower($name))
                     return true;
 
@@ -94,13 +96,13 @@ class PlayerService
      * @throws \HydrationException
      * @throws \Exception
      */
-    public function getProfileInDb($identifier, array $options)
+    public function getProfileInDb($identifier)
     {
         $uuid_service = $this->container->get('screeper.player.services.uuid');
 
         if(is_string($identifier))
-            if(strlen($identifier) > 16)
-                $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByUUID($identifier);
+            if(strlen($identifier) > 16) // Si c'est un UUID
+                $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByUuid($identifier);
             else
             {
                 $uuid = $uuid_service->getUUIDFromUsername($identifier);
@@ -108,7 +110,7 @@ class PlayerService
                 if($uuid == null)
                     throw new \Exception("Screeper - PlayerBundle - Erreur, l'UUID associé au pseudo spécifié est introuvable ou les serveurs de Mojang ne fonctionnent pas");
 
-                $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByUUID($uuid);
+                return $this->getProfileInDb($uuid);
             }
         else
             throw new InvalidTypeException("Screeper - PlayerBundle - L'argument passer pour récupéré un profil doit etre un pseudo ou un uuid");
@@ -123,7 +125,7 @@ class PlayerService
             throw new \Exception("Screeper - PlayerBundle - Il semblerait que le serveur possède deux joueurs ayant le même UUID, veuillez contacter un administrateur");
     }
 
-    public function checkOnlinePlayers($server_name)
+    public function checkOnlinePlayers($server_name, OutputInterface $output = null)
     {
         $json_api_service = $this->container->get('screeper.json_api.services.api');
         $uuid_service = $this->container->get('screeper.player.services.uuid');
@@ -139,21 +141,35 @@ class PlayerService
                 // On charge, s'il existe, le profile enregistré en BDD
                 $profile = $this->getProfileInDb($player_uuid);
 
+                if($output instanceof OutputInterface)
+                    $output->writeln('Chargement du profil.');
+
                 if($profile == null) // Si aucun profil n'a été trouvé, alors on en crée un.
                 {
+                    if($output instanceof OutputInterface)
+                        $output->writeln('Aucun profil trouve pour le joueur "'.$player.'".');
+
                     $profile = new PlayerEntity();
                     $profile->addUsername($player)
                         ->addUsernamesLog(new \DateTime())
                         ->setUuid($player_uuid);
                 }
-                else
-                    if(end($profile->getUsernames()) != $player) // Si on constate un changement de pseudo, on l'enregistre
+                else {
+                    $usernames = $profile->getUsernames();
+                    if(end($usernames) != $player) // Si on constate un changement de pseudo, on l'enregistre
                         $profile->addUsername($player)
-                            ->addUsernamesLog(new \DateTime());
+                            ->addUsernamesLog(new \DateTime()); }
 
                 $profile
                     ->setNbVerification($profile->getNbVerification() + 1)
-                    ->setLastVerification(new DateTime());
+                    ->setLastVerification(new \DateTime());
+
+                $this->entityManager->persist($profile);
+                $this->entityManager->flush();
+
+                if($output instanceof OutputInterface) {
+                    $output->writeln('Le profile du joueur "'.$player.'" a ete mis a jour');
+                    $output->writeln('-------------------------'); }
             }
         }
     }

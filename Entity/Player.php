@@ -34,7 +34,7 @@ class Player
      * Le dernier pseudo connu du joueur
      * @var array
      *
-     * @ORM\Column(name="last_username", type="array")
+     * @ORM\Column(name="last_username", type="string", length=16)
      *
      */
     private $lastUsername = array();
@@ -77,7 +77,8 @@ class Player
      */
     public function updateLastUsername()
     {
-        $new_username = end($this->getUsernames());
+        $usernames = $this->getUsernames();
+        $new_username = end($usernames);
 
         if($this->getLastUsername() != $new_username)
             $this->setLastUsername($new_username);

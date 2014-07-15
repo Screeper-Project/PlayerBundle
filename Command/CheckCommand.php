@@ -15,6 +15,11 @@ class CheckCommand extends ContainerAwareCommand
         $this
             ->setName('screeper:check_player')
             ->setDescription('Fait une verif des joueurs en ligne')
+            ->addArgument(
+                'server',
+                InputArgument::OPTIONAL,
+                'Nom du serveur'
+            )
         ;
     }
 
@@ -25,16 +30,15 @@ class CheckCommand extends ContainerAwareCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-                /*
-        if($input->getArgument('server') != null)
+        if($input->getArgument('server'))
             $server = $input->getArgument('server');
-        else*/
+        else
             $server = ServerService::DEFAULT_SERVER_NAME;
 
         $container = $this->getContainer();
         $checkConnection = $container->get('screeper.json_api.services.api')->getServerStatus($server);
 
         if($checkConnection)
-            $container->get('screeper.player.services.player')->checkOnlinePlayers($server);
+            $container->get('screeper.player.services.player')->checkOnlinePlayers($server, $output);
     }
 }
