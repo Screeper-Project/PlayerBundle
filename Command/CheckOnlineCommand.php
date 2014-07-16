@@ -8,17 +8,15 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class CheckCommand extends ContainerAwareCommand
+class CheckOnlineCommand extends ContainerAwareCommand
 {
     protected function configure()
     {
         $this
-            ->setName('screeper:check_player')
-            ->setDescription('Fait une verif des joueurs en ligne')
+            ->setName('screeper:player:checkOnline')
+            ->setDescription('Fait une verification de tous les joueurs en ligne')
             ->addArgument(
-                'server',
-                InputArgument::OPTIONAL,
-                'Nom du serveur'
+                'server', InputArgument::OPTIONAL, 'Nom du serveur'
             )
         ;
     }
