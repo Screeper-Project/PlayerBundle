@@ -125,7 +125,7 @@ class PlayerService
             throw new \Exception("Screeper - PlayerBundle - Il semblerait que le serveur possède deux joueurs ayant le même UUID, veuillez contacter un administrateur");
     }
 
-    public function checkOnlinePlayers($server_name, OutputInterface $output = null)
+    public function checkOnlinePlayers($server_name = ServerService::DEFAULT_SERVER_NAME, OutputInterface $output = null)
     {
         $json_api_service = $this->container->get('screeper.json_api.services.api');
         $uuid_service = $this->container->get('screeper.player.services.uuid');
