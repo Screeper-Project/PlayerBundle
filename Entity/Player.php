@@ -7,7 +7,10 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Player
  *
- * @ORM\Table(name="screeper__players")
+ * @ORM\Table(name="screeper__players", indexes={
+ *     @ORM\Index(name="uuid_idx", columns={"uuid"}),
+ *     @ORM\Index(name="lastusername_idx", columns={"last_username"}),
+ * })
  * @ORM\Entity
  * @ORM\HasLifecycleCallbacks()
  */
@@ -32,12 +35,12 @@ class Player
 
     /**
      * Le dernier pseudo connu du joueur
-     * @var array
+     * @var string
      *
      * @ORM\Column(name="last_username", type="string", length=16)
      *
      */
-    private $lastUsername = array();
+    private $lastUsername = '';
 
     /**
      * Pour chaque changement de pseudo, correspond à la date constaté du changement par le serveur (Chaque indice correspond a l'indice du pseudo correspondant)
@@ -74,6 +77,7 @@ class Player
     /**
      * @ORM\PreUpdate
      * @ORM\PrePersist
+     * @ORM\PostLoad
      */
     public function updateLastUsername()
     {
@@ -251,10 +255,21 @@ class Player
     /**
      * Get nbVerification
      *
-     * @return integer 
+     * @return integer
      */
     public function getNbVerification()
     {
         return $this->nbVerification;
+    }
+
+    /**
+     * @param int $nb
+     * @return $this
+     */
+    public function incrNbVerification($nb = 1)
+    {
+        $this->setNbVerification($this->getNbVerification() + $nb);
+
+        return $this;
     }
 }

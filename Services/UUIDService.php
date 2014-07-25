@@ -4,7 +4,7 @@ namespace Screeper\PlayerBundle\Services;
 
 /**
  * @author Graille
- * @version 1.0.0
+ * @version 1.0.1
  * @link http://github.com/Graille
  * @package PLAYERBUNDLE
  * @since 1.0.0
@@ -31,16 +31,7 @@ class UUIDService
     }
 
     /**
-     * Permet de récupéré le profil d'un joueur si celui-ci a été enregistré dans la base de données
-     * @param $identifier
-     * @param array $options
-     * @return null
-     * @throws \HydrationException
-     * @throws \Exception
-     */
-
-    /**
-     * Permet de récupéré le pseudo a partir de l'uuid, à utilisé avec précaution (erreur possible)
+     * Permet de récupérer le pseudo a partir de l'uuid, à utilisé avec précaution (erreur possible)
      * @param $identifier
      * @param int $timeout
      * @return string|null
@@ -115,7 +106,8 @@ class UUIDService
      * @param $uuid string UUID to format
      * @return string Properly formatted UUID (According to UUID v4 Standards xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx WHERE y = 8,9,A,or B and x = random digits.)
      */
-    public function formatUUID($uuid) {
+    public function formatUUID($uuid)
+    {
         $uid = "";
         $uid .= substr($uuid, 0, 8)."-";
         $uid .= substr($uuid, 8, 4)."-";

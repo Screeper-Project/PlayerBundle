@@ -4,7 +4,7 @@ namespace Screeper\PlayerBundle\Services;
 
 /**
  * @author Graille
- * @version 1.0.0
+ * @version 1.1
  * @link http://github.com/Graille
  * @package PLAYERBUNDLE
  * @since 1.0.0
@@ -12,10 +12,11 @@ namespace Screeper\PlayerBundle\Services;
 
 use Doctrine\ORM\EntityManager;
 use Screeper\PlayerBundle\Entity\Player as PlayerEntity;
+use Screeper\ServerBundle\Entity\Server;
 use Screeper\ServerBundle\Services\ServerService;
 use Symfony\Component\Config\Definition\Exception\InvalidTypeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\Validator\Constraints\DateTime;
+use Symfony\Component\Form\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class PlayerService
@@ -24,6 +25,7 @@ class PlayerService
     protected $entityManager;
 
     const PLAYER_USERNAME_MAX_LENGTH = 16;
+
     /**
      * @param ContainerInterface $container
      * @param EntityManager $entityManager
@@ -36,41 +38,39 @@ class PlayerService
 
     /**
      * Permet de savoir si un joueur est connecté en coniassant son pseudo, don uuid, ou en ayant un profil de lui
-     * @param $player
-     * @param string $server
+     * @param $identifier
+     * @param string $server_name
      * @return bool
      * @throws \Symfony\Component\Config\Definition\Exception\InvalidTypeException
      */
-    public function isConnected($player, $server_name = ServerService::DEFAULT_SERVER_NAME)
+    public function isConnected($identifier, $server_name = ServerService::DEFAULT_SERVER_KEY)
     {
         $json_api_service = $this->container->get('screeper.json_api.services.api');
         $uuid_service = $this->container->get('screeper.player.services.uuid');
 
         $online_players_names = $json_api_service->callResult('players.online.names', array(), $server_name);
 
-        if($player instanceof PlayerEntity)
+        if($identifier instanceof PlayerEntity)
         {
-            $last_username_of_player = strtolower($player->getLastUsername());
-
             foreach($online_players_names as $name)
-                if($last_username_of_player == strtolower($name))
-                    if($uuid_service->getUUIDFromUsername($name) == $player->getUuid())
+                if(strtolower($identifier->getLastUsername()) == strtolower($name))
+                    if($uuid_service->getUUIDFromUsername($name) == $identifier->getUuid())
                         return true;
 
-            return $this->isConnected($player->getUuid()); // Si la recherche par nom simple n'a rien donnée, on recherche par uuid
+            return $this->isConnected($identifier->getUuid()); // Si la recherche par nom simple n'a rien donnée, on recherche par uuid
         }
-        elseif(is_string($player) && strlen($player) > PlayerService::PLAYER_USERNAME_MAX_LENGTH) // Si on a spécifié un uuid
+        elseif(is_string($identifier) && strlen($identifier) > self::PLAYER_USERNAME_MAX_LENGTH) // Si on a spécifié un uuid
         {
             foreach($online_players_names as $name)
-                if($uuid_service->getUUIDFromUsername($name) == $player)
+                if($uuid_service->getUUIDFromUsername($name) == $identifier)
                     return true;
 
             return false;
         }
-        elseif(is_string($player) && strlen($player) <= PlayerService::PLAYER_USERNAME_MAX_LENGTH) // Si on a spécifié un pseudo (DECONSEILLE POUR DES RAISONS DE SECURITE)
+        elseif(is_string($identifier) && strlen($identifier) <= self::PLAYER_USERNAME_MAX_LENGTH) // Si on a spécifié un pseudo (DECONSEILLE POUR DES RAISONS DE SECURITE)
         {
             foreach($online_players_names as $name)
-                if(strtolower($player) == strtolower($name))
+                if(strtolower($identifier) == strtolower($name))
                     return true;
 
             return false;
@@ -79,21 +79,42 @@ class PlayerService
             throw new InvalidTypeException("Screeper - PlayerService - Vous n'avez pas spécifié ni un pseudo, ni un uuid, ni un objet de type 'Player'");
     }
 
-    public function getPlayers(array $identifier)
+    /**
+     * @param $player_uuid
+     * @param $player_username
+     * @return PlayerEntity
+     */
+    public function addPlayer($player_uuid, $player_username)
     {
+        $player = $this->createPlayer($player_uuid, $player_username);
+        $this->entityManager->persist($player);
+        $this->entityManager->flush();
 
+        return $player;
     }
 
-    public function addPlayer(array $identifiers)
+    /**
+     * @param $player_uuid
+     * @param $player_username
+     * @param null $date
+     * @return PlayerEntity
+     */
+    public function createPlayer($player_uuid, $player_username, $date = null)
     {
+        if($date == null) $date = new \DateTime();
 
+        $player = new PlayerEntity();
+        $player->addUsername($player_username)
+            ->addUsernamesLog($date)
+            ->setUuid($player_uuid);
+
+        return $player;
     }
 
     /**
      * @param $identifier
-     * @param array $options
      * @return null
-     * @throws \HydrationException
+     * @throws \Symfony\Component\Config\Definition\Exception\InvalidTypeException
      * @throws \Exception
      */
     public function getProfileInDb($identifier)
@@ -125,52 +146,97 @@ class PlayerService
             throw new \Exception("Screeper - PlayerBundle - Il semblerait que le serveur possède deux joueurs ayant le même UUID, veuillez contacter un administrateur");
     }
 
-    public function checkOnlinePlayers($server_name, OutputInterface $output = null)
+    /**
+     * @param string $server_key
+     * @param OutputInterface $output
+     */
+    public function checkOnlinePlayers($server_key = ServerService::DEFAULT_SERVER_KEY, OutputInterface $output = null)
     {
         $json_api_service = $this->container->get('screeper.json_api.services.api');
         $uuid_service = $this->container->get('screeper.player.services.uuid');
 
-        $online_players = $json_api_service->callResult('players.online.names', array(), $server_name);
+        $online_players = $json_api_service->callResult('players.online.names', array(), $server_key);
 
-        foreach($online_players as $player)
+        foreach($online_players as $player_username)
         {
-            $player_uuid = $uuid_service->getUUIDFromUsername($player);
-
-            if($player_uuid != null) // Si on a trouvé l'UUID
-            {
-                // On charge, s'il existe, le profile enregistré en BDD
-                $profile = $this->getProfileInDb($player_uuid);
-
-                if($output instanceof OutputInterface)
-                    $output->writeln('Chargement du profil.');
-
-                if($profile == null) // Si aucun profil n'a été trouvé, alors on en crée un.
-                {
-                    if($output instanceof OutputInterface)
-                        $output->writeln('Aucun profil trouve pour le joueur "'.$player.'".');
-
-                    $profile = new PlayerEntity();
-                    $profile->addUsername($player)
-                        ->addUsernamesLog(new \DateTime())
-                        ->setUuid($player_uuid);
-                }
-                else {
-                    $usernames = $profile->getUsernames();
-                    if(end($usernames) != $player) // Si on constate un changement de pseudo, on l'enregistre
-                        $profile->addUsername($player)
-                            ->addUsernamesLog(new \DateTime()); }
-
-                $profile
-                    ->setNbVerification($profile->getNbVerification() + 1)
-                    ->setLastVerification(new \DateTime());
-
-                $this->entityManager->persist($profile);
-                $this->entityManager->flush();
-
-                if($output instanceof OutputInterface) {
-                    $output->writeln('Le profile du joueur "'.$player.'" a ete mis a jour');
-                    $output->writeln('-------------------------'); }
-            }
+            $player_uuid = $uuid_service->getUUIDFromUsername($player_username);
+            if(!empty($player_uuid)) $this->checkPlayer($player_uuid, $player_username, null, $output);
         }
+    }
+
+    /**
+     * @param null $player_uuid
+     * @param null $player_username
+     * @param null $date
+     * @param OutputInterface $output
+     * @throws \Symfony\Component\Form\Exception\InvalidArgumentException
+     */
+    public function checkPlayer($player_uuid = null, $player_username = null, $date = null, OutputInterface $output = null)
+    {
+        if($player_uuid != null && $player_username != null) // Si on a trouvé l'UUID
+        {
+            if($date == null) $date = new \DateTime();
+
+            // On charge, s'il existe, le profile enregistré en BDD
+            $profile = $this->getProfileInDb($player_uuid);
+
+            if($output instanceof OutputInterface)
+                $output->writeln('Chargement du profil.');
+
+            if($profile == null) // Si aucun profil n'a été trouvé, alors on en crée un.
+            {
+                if($output instanceof OutputInterface) $output->writeln('Aucun profil trouve pour le joueur "'.$player_username.'", celui-ci va etre cree.');
+                $profile = $this->createPlayer($player_uuid, $player_username, $date);
+            }
+            else
+                if($profile->getLastUsername() != $player_username) // Si on constate un changement de pseudo, on l'enregistre
+                    $profile->addUsername($player_username)
+                        ->addUsernamesLog($date);
+
+            $profile->incrNbVerification()
+                ->setLastVerification($date);
+
+            $this->entityManager->persist($profile);
+            $this->entityManager->flush();
+
+            if($output instanceof OutputInterface) {
+                $output->writeln('Le profil du joueur "'.$player_username.'" a ete mis a jour');
+                $output->writeln('-------------------------'); }
+        }
+        else
+            throw new InvalidArgumentException("Screeper - PlayerBundle - checkPlayer() : Vous n'avez pas spécifié l'UUID ou le pseudo du joueur");
+    }
+
+    public function checkFileAction($server, $file_adress, OutputInterface $output = null)
+    {
+        if(!($server instanceof Server))
+            $srv = $this->get('screeper.server.services.server')->getServer($server);
+
+        $adress = 'ftp://' . $srv->getLogin() . ':' . $srv->getPwd() . '@' . $srv->getIp() . '/' . $file_adress;
+
+        // Chargement du fichier
+        $file = fopen($adress, 'r+');
+
+        if(!$file) return false;
+
+        // Traitement du fichier
+        while(true) {
+            $line = fgets($file);
+            if($line == '') break;
+
+            $infos = explode(':', $line);
+            $date = new \DateTime();
+            $date->setTimestamp($infos[0]);
+
+            $this->checkPlayer($infos[2], $infos[1], $date, $output); }
+
+        fclose($file); // Fermeture du fichier
+
+        // Clear file
+        $file = fopen($adress ,"w");
+        ftruncate($file,0);
+        fclose($file);
+
+        return true;
     }
 }
