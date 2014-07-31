@@ -16,7 +16,7 @@ class CheckFileCommand extends ContainerAwareCommand
             ->setName('screeper:player:checkFile')
             ->setDescription('Fait une verification des fichiers de ScreeperPlugin')
             ->addArgument('server', InputArgument::OPTIONAL, 'Nom du serveur')
-            ->addArgument('fileAdress', InputArgument::OPTIONAL, 'Adresse du fichier depuis la racine')
+            ->addArgument('fileAdress', InputArgument::OPTIONAL, 'Adresse du fichier depuis la racine du serveur')
         ;
     }
 
