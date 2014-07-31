@@ -122,14 +122,15 @@ class PlayerService
         $uuid_service = $this->container->get('screeper.player.services.uuid');
 
         if(is_string($identifier))
-            if(strlen($identifier) > 16) // Si c'est un UUID
+            if(strlen($identifier) > self::PLAYER_USERNAME_MAX_LENGTH) // Si c'est un UUID
                 $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByUuid($identifier);
             else
             {
                 $uuid = $uuid_service->getUUIDFromUsername($identifier);
 
                 if($uuid == null)
-                    throw new \Exception("Screeper - PlayerBundle - Erreur, l'UUID associé au pseudo spécifié est introuvable ou les serveurs de Mojang ne fonctionnent pas");
+                    return null;
+                    //throw new \Exception("Screeper - PlayerBundle - Erreur, l'UUID associé au pseudo spécifié est introuvable ou les serveurs de Mojang ne fonctionnent pas");
 
                 return $this->getProfileInDb($uuid);
             }
@@ -156,22 +157,27 @@ class PlayerService
         $uuid_service = $this->container->get('screeper.player.services.uuid');
 
         $online_players = $json_api_service->callResult('players.online.names', array(), $server_key);
+        $date = new \DateTime();
 
         foreach($online_players as $player_username)
         {
             $player_uuid = $uuid_service->getUUIDFromUsername($player_username);
-            if(!empty($player_uuid)) $this->checkPlayer($player_uuid, $player_username, null, $output);
+            if(!empty($player_uuid)) $this->checkPlayer($player_uuid, $player_username, $date, array('flush' => false), $output);
         }
+
+        $this->entityManager->flush(); // On flush tout ce qui a été persist
     }
 
     /**
      * @param null $player_uuid
      * @param null $player_username
      * @param null $date
+     * @param array $options
      * @param OutputInterface $output
+     * @return null|PlayerEntity
      * @throws \Symfony\Component\Form\Exception\InvalidArgumentException
      */
-    public function checkPlayer($player_uuid = null, $player_username = null, $date = null, OutputInterface $output = null)
+    public function checkPlayer($player_uuid = null, $player_username = null, $date = null, $options = array(), OutputInterface $output = null)
     {
         if($player_uuid != null && $player_username != null) // Si on a trouvé l'UUID
         {
@@ -183,7 +189,7 @@ class PlayerService
             if($output instanceof OutputInterface)
                 $output->writeln('Chargement du profil.');
 
-            if($profile == null) // Si aucun profil n'a été trouvé, alors on en crée un.
+            if(!$profile) // Si aucun profil n'a été trouvé, alors on en crée un.
             {
                 if($output instanceof OutputInterface) $output->writeln('Aucun profil trouve pour le joueur "'.$player_username.'", celui-ci va etre cree.');
                 $profile = $this->createPlayer($player_uuid, $player_username, $date);
@@ -194,19 +200,30 @@ class PlayerService
                         ->addUsernamesLog($date);
 
             $profile->incrNbVerification()
-                ->setLastVerification($date);
-
-            $this->entityManager->persist($profile);
-            $this->entityManager->flush();
+                ->setLastVerification(new \DateTime());
 
             if($output instanceof OutputInterface) {
                 $output->writeln('Le profil du joueur "'.$player_username.'" a ete mis a jour');
                 $output->writeln('-------------------------'); }
+
+            // Gestion des options
+            if(!isset($options['persist']) || $options['persist']) $this->entityManager->persist($profile); // default: true
+            if(!isset($options['flush']) || $options['flush']) $this->entityManager->flush(); // default: true
+            if(isset($options['getProfile']) && $options['getProfile']) return $profile; // default: false
+            if(isset($options['getBoolean']) && $options['getBoolean']) return ($profile) ? true : false; // default: false
         }
         else
             throw new InvalidArgumentException("Screeper - PlayerBundle - checkPlayer() : Vous n'avez pas spécifié l'UUID ou le pseudo du joueur");
     }
 
+    /* SCREEPERPLUGIN PLAYER EXTENSION */
+
+    /**
+     * @param $server
+     * @param $file_adress
+     * @param OutputInterface $output
+     * @return bool
+     */
     public function checkFileAction($server, $file_adress, OutputInterface $output = null)
     {
         if(!($server instanceof Server))
@@ -216,11 +233,11 @@ class PlayerService
 
         // Chargement du fichier
         $file = fopen($adress, 'r+');
-
         if(!$file) return false;
 
         // Traitement du fichier
-        while(true) {
+        while(true)
+        {
             $line = fgets($file);
             if($line == '') break;
 
@@ -228,7 +245,19 @@ class PlayerService
             $date = new \DateTime();
             $date->setTimestamp($infos[0]);
 
-            $this->checkPlayer($infos[2], $infos[1], $date, $output); }
+            $profile = $this->checkPlayer($infos[2], $infos[1], $date, array(
+                'getProfile' => true,
+                'persist' => false,
+                'flush' => false
+            ), $output);
+
+            // ScreeperPlugin
+            $profile->addConnection($date)
+                ->addIp($infos[3]);
+
+            $this->entityManager->persist($profile);
+        }
+        $this->entityManager->flush();
 
         fclose($file); // Fermeture du fichier
 
