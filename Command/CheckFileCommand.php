@@ -27,11 +27,8 @@ class CheckFileCommand extends ContainerAwareCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        if($input->getArgument('server')) $server = $input->getArgument('server');
-        else $server = ServerService::DEFAULT_SERVER_KEY;
-
-        if($input->getArgument('fileAdress')) $adress = $input->getArgument('fileAdress');
-        else $adress = '';
+        $server = ($input->getArgument('server')) ? $input->getArgument('server') : ServerService::DEFAULT_SERVER_KEY;
+        $adress = ($input->getArgument('fileAdress')) ? $input->getArgument('fileAdress') : '';
 
         $container = $this->getContainer();
         $checkConnection = $container->get('screeper.json_api.services.api')->getServerStatus($server);
