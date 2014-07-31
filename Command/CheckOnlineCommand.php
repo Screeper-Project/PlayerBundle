@@ -28,10 +28,7 @@ class CheckOnlineCommand extends ContainerAwareCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        if($input->getArgument('server'))
-            $server = $input->getArgument('server');
-        else
-            $server = ServerService::DEFAULT_SERVER_KEY;
+        $server = ($input->getArgument('server')) ? $input->getArgument('server') : ServerService::DEFAULT_SERVER_KEY;
 
         $container = $this->getContainer();
         $checkConnection = $container->get('screeper.json_api.services.api')->getServerStatus($server);
