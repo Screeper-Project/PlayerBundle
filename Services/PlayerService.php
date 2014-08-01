@@ -239,7 +239,8 @@ class PlayerService
         while(true)
         {
             $line = fgets($file);
-            if($line == '') break;
+
+            if(!$line) break;
 
             $infos = explode(':', $line);
             $date = new \DateTime();
