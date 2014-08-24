@@ -1,0 +1,3 @@
+service:
+    player:
+        missing.informations: Vous n'avez pas spécifié ni un pseudo, ni un uuid, ni un objet de type 'Player'

@@ -23,6 +23,7 @@ class PlayerService
 {
     protected $container;
     protected $entityManager;
+    protected $translator;
 
     const PLAYER_USERNAME_MAX_LENGTH = 16;
 
@@ -34,6 +35,7 @@ class PlayerService
     {
         $this->container = $container;
         $this->entityManager = $entityManager;
+        $this->translator = $container->get('translator');
     }
 
     /**
@@ -76,7 +78,7 @@ class PlayerService
             return false;
         }
         else
-            throw new InvalidTypeException("Screeper - PlayerService - Vous n'avez pas spécifié ni un pseudo, ni un uuid, ni un objet de type 'Player'");
+            throw new InvalidTypeException("Screeper - PlayerService - ".$this->translator->trans('service.player.missing.informations'));
     }
 
     /**
@@ -128,9 +130,7 @@ class PlayerService
             {
                 $uuid = $uuid_service->getUUIDFromUsername($identifier);
 
-                if($uuid == null)
-                    return null;
-                    //throw new \Exception("Screeper - PlayerBundle - Erreur, l'UUID associé au pseudo spécifié est introuvable ou les serveurs de Mojang ne fonctionnent pas");
+                if(!$uuid) return null;
 
                 return $this->getProfileInDb($uuid);
             }
