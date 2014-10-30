@@ -16,7 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 class Player
 {
-    const MAX_RECORDS = 5;
+    const MAX_RECORDS = 10;
 
     /**
      * @var integer
@@ -60,7 +60,7 @@ class Player
     private $uuid;
 
     /**
-     * Les 5 dernières connexions connu du joueur
+     * Les dernières connexions connu du joueur
      * REQUIRE SCREEPERPLUGIN
      *
      * @var array
@@ -70,7 +70,17 @@ class Player
     private $connections = array();
 
     /**
-     * Les 5 dernières ips du joueur (chaque clé correspond a la clé de la connexion de "$connexions")
+     * Les serveurs de connexion correspondant aux dernières connexions connu du joueur
+     * REQUIRE SCREEPERPLUGIN
+     *
+     * @var array
+     *
+     * @ORM\Column(name="connections", type="array", nullable=true)
+     */
+    //private $connectionsServers = array();
+
+    /**
+     * Les dernières ips du joueur (chaque clé correspond a la clé de la connexion de "$connexions")
      * REQUIRE SCREEPERPLUGIN
      *
      * @var array
@@ -198,7 +208,12 @@ class Player
         $this->connections[] = $connection;
 
         if(count($this->getConnections()) > self::MAX_RECORDS)
-            $this->setConnections(array_shift($this->getConnections()));
+        {
+            $connections = $this->getConnections();
+            array_shift($connections);
+
+            $this->setConnections($connections);
+        }
 
         $this->updateLastConnection();
 
@@ -214,7 +229,12 @@ class Player
         $this->ips[] = $ip;
 
         if(count($this->getIps()) > self::MAX_RECORDS)
-            $this->setIps(array_shift($this->getIps()));
+        {
+            $ips = $this->getIps();
+            array_shift($ips);
+
+            $this->setConnections($ips);
+        }
 
         $this->updateLastIp();
 
@@ -224,6 +244,8 @@ class Player
     public function incrNbVerification($nb = 1)
     {
         $this->setNbVerification($this->getNbVerification() + $nb);
+
+        return $this;
     }
 
     /* Getters et Setters */

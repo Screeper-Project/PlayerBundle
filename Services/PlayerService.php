@@ -101,7 +101,7 @@ class PlayerService
      */
     public function createPlayer($player_uuid, $player_username, $date = null)
     {
-        if($date == null) $date = new \DateTime();
+        if(!$date) $date = new \DateTime();
 
         $player = new PlayerEntity();
         $player->addUsername($player_username)
@@ -113,11 +113,12 @@ class PlayerService
 
     /**
      * @param $identifier
+     * @param array $options
      * @return null
      * @throws \Symfony\Component\Config\Definition\Exception\InvalidTypeException
      * @throws \Exception
      */
-    public function getProfileInDb($identifier)
+    public function getProfileInDb($identifier, $options = array())
     {
         $uuid_service = $this->container->get('screeper.player.services.uuid');
 
@@ -125,15 +126,14 @@ class PlayerService
             if(strlen($identifier) > self::PLAYER_USERNAME_MAX_LENGTH) // Si c'est un UUID
                 $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByUuid($identifier);
             else
-            {
-                $uuid = $uuid_service->getUUIDFromUsername($identifier);
-
-                if($uuid == null)
-                    return null;
-                    //throw new \Exception("Screeper - PlayerBundle - Erreur, l'UUID associé au pseudo spécifié est introuvable ou les serveurs de Mojang ne fonctionnent pas");
-
-                return $this->getProfileInDb($uuid);
-            }
+                if(!isset($options['search_by_lastusername']) || !$options['search_by_lastusername']) // default : false
+                {
+                    // Methode 1 : Récupération de l'uuid puis du membre correspondant
+                    $uuid = $uuid_service->getUUIDFromUsername($identifier);
+                    return ($uuid) ? $this->getProfileInDb($uuid) : null;
+                }
+                else // Methode 2 : Recherche par dernier username (permet de ne pas avoir a passer par le serveur de mojang)
+                    $result = $this->entityManager->getRepository('ScreeperPlayerBundle:Player')->findByLastUsername($identifier);
         else
             throw new InvalidTypeException("Screeper - PlayerBundle - L'argument passer pour récupéré un profil doit etre un pseudo ou un uuid");
 
@@ -144,7 +144,7 @@ class PlayerService
         if($nb_result == 1) // Si on a un seul résultat, on le retourne
             return $result[0];
         if($nb_result >= 1) // Si on a plusieurs résultats
-            throw new \Exception("Screeper - PlayerBundle - Il semblerait que le serveur possède deux joueurs ayant le même UUID, veuillez contacter un administrateur");
+            throw new \Exception("Screeper - PlayerBundle - Il semblerait que le serveur possède deux joueurs ayant le même identifier '".$identifier."', veuillez contacter un administrateur");
     }
 
     /**
@@ -169,6 +169,7 @@ class PlayerService
     }
 
     /**
+     * Permet de verifier/mettre à jour un profile de joueur
      * @param null $player_uuid
      * @param null $player_username
      * @param null $date
@@ -183,7 +184,7 @@ class PlayerService
         {
             if($date == null) $date = new \DateTime();
 
-            // On charge, s'il existe, le profile enregistré en BDD
+            // On charge, s'il existe un profil enregistré en BDD
             $profile = $this->getProfileInDb($player_uuid);
 
             if($output instanceof OutputInterface)
@@ -210,7 +211,7 @@ class PlayerService
             if(!isset($options['persist']) || $options['persist']) $this->entityManager->persist($profile); // default: true
             if(!isset($options['flush']) || $options['flush']) $this->entityManager->flush(); // default: true
             if(isset($options['getProfile']) && $options['getProfile']) return $profile; // default: false
-            if(isset($options['getBoolean']) && $options['getBoolean']) return ($profile) ? true : false; // default: false
+            if(isset($options['getBoolean']) && $options['getBoolean']) return ($profile instanceof PlayerEntity) ? true : false; // default: false
         }
         else
             throw new InvalidArgumentException("Screeper - PlayerBundle - checkPlayer() : Vous n'avez pas spécifié l'UUID ou le pseudo du joueur");
@@ -219,6 +220,7 @@ class PlayerService
     /* SCREEPERPLUGIN PLAYER EXTENSION */
 
     /**
+     * Permet de récupéré le tracker du plugin Screeper et de traité les données
      * @param $server
      * @param $file_adress
      * @param OutputInterface $output
@@ -227,46 +229,68 @@ class PlayerService
     public function checkFileAction($server, $file_adress, OutputInterface $output = null)
     {
         if(!($server instanceof Server))
-            $srv = $this->get('screeper.server.services.server')->getServer($server);
+            $srv = $this->container->get('screeper.server.services.server')->getServer($server);
 
-        $adress = 'ftp://' . $srv->getLogin() . ':' . $srv->getPwd() . '@' . $srv->getIp() . '/' . $file_adress;
+        if($output instanceof OutputInterface) $output->writeln("Recuperation du fichier ".$file_adress);
+
+        $adress = 'ftp://' . $srv->getLogin() . ':' . $srv->getPwd() . '@' . $srv->getIp() . $file_adress;
 
         // Chargement du fichier
-        $file = fopen($adress, 'r+');
+        $file = fopen($adress, 'r');
         if(!$file) return false;
 
+        if($output instanceof OutputInterface) $output->writeln("Fichier '".$file_adress."' recupere");
+
+        $c = 0;
         // Traitement du fichier
         while(true)
         {
             $line = fgets($file);
 
+            // Condition de sortie
             if(!$line) break;
 
+            // Traitement des lignes
             $infos = explode(':', $line);
-            $date = new \DateTime();
-            $date->setTimestamp($infos[0]);
+            $uuid = str_replace("-", "", $infos[1]); // Traitement de l'uuid
+            $date = (new \DateTime())->setTimestamp($infos[0] / 1000); // Le timestamp est récupéré en ms, on le convertit en temps UNIX
 
-            $profile = $this->checkPlayer($infos[2], $infos[1], $date, array(
+            // Récupération du profil
+            $profile = $this->checkPlayer($uuid, $infos[2], $date, array(
                 'getProfile' => true,
                 'persist' => false,
                 'flush' => false
             ), $output);
 
-            // ScreeperPlugin
-            $profile->addConnection($date)
-                ->addIp($infos[3]);
+            if($infos[3] != "disconnect")
+                $profile->addConnection($date);
 
             $this->entityManager->persist($profile);
+            $this->entityManager->flush(); // Si on ne flush pas, on risque d'avoir des problèmes si l'utilisateur apparait plusieurs fois
+            $c++;
         }
-        $this->entityManager->flush();
 
         fclose($file); // Fermeture du fichier
 
         // Clear file
-        $file = fopen($adress ,"w");
-        ftruncate($file,0);
+        // Allows overwriting of existing files on the remote FTP server
+        $stream_options = array('ftp' => array('overwrite' => true));
+
+        // Creates a stream context resource with the defined options
+        $stream_context = stream_context_create($stream_options);
+        $file = fopen($adress ,"w", 0, $stream_context);
         fclose($file);
 
+        if($output instanceof OutputInterface) $output->writeln("Traitement termine : Total : ".$c." lignes traitees");
+
         return true;
+    }
+
+    /**
+     * Génère le fichier log pour un export des joueurs
+     */
+    public function generateFileAction()
+    {
+
     }
 }

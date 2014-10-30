@@ -31,9 +31,11 @@ class CheckFileCommand extends ContainerAwareCommand
         $adress = ($input->getArgument('fileAdress')) ? $input->getArgument('fileAdress') : '';
 
         $container = $this->getContainer();
-        $checkConnection = $container->get('screeper.json_api.services.api')->getServerStatus($server);
+        $checkConnection = $container->get('screeper.json_api.services.api')->getServerStatus(str_replace("ftp_", "", $server));
 
         if($checkConnection)
             $container->get('screeper.player.services.player')->checkFileAction($server, $adress, $output);
+        else
+            $output->writeln("Probleme de connexion au serveur");
     }
 }
